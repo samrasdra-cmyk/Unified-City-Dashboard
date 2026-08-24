@@ -1,4 +1,5 @@
 from functools import lru_cache
+from pathlib import Path
 from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
 from pydantic import field_validator
@@ -41,6 +42,8 @@ class Settings(BaseSettings):
     KAFKA_SASL_MECHANISM: str = "PLAIN"
     KAFKA_USERNAME: str = ""
     KAFKA_PASSWORD: str = ""
+    # Optional Aiven CA bundle. If absent, librdkafka uses the system trust store.
+    KAFKA_SSL_CA_LOCATION: str = "./ca.pem"
     KAFKA_TOPIC_TRAFFIC: str = "traffic.speed"
     KAFKA_TOPIC_AIR: str = "air.quality"
     KAFKA_TOPIC_TRANSIT: str = "transit.gps"
@@ -99,6 +102,8 @@ class Settings(BaseSettings):
             config["sasl.mechanism"] = self.KAFKA_SASL_MECHANISM
             config["sasl.username"] = self.KAFKA_USERNAME
             config["sasl.password"] = self.KAFKA_PASSWORD
+        if Path(self.KAFKA_SSL_CA_LOCATION).is_file():
+            config["ssl.ca.location"] = self.KAFKA_SSL_CA_LOCATION
         return config
 
 
