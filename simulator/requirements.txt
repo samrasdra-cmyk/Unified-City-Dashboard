@@ -1,0 +1,2 @@
+confluent-kafka==2.5.3
+orjson==3.10.7

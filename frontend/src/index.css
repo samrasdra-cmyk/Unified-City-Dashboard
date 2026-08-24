@@ -1,0 +1,135 @@
+:root {
+  color-scheme: dark;
+  --bg: #0b0f14;
+  --panel: #121820;
+  --panel-border: #1f2833;
+  --text: #e6edf3;
+  --muted: #8b98a5;
+  --accent: #3ea6ff;
+  --green: #3fb950;
+  --yellow: #d29922;
+  --red: #f85149;
+  font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+* { box-sizing: border-box; }
+
+html, body, #root {
+  height: 100%;
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+}
+
+.app-shell {
+  display: grid;
+  grid-template-columns: 320px 1fr;
+  height: 100vh;
+}
+
+.sidebar {
+  background: var(--panel);
+  border-right: 1px solid var(--panel-border);
+  padding: 20px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.sidebar h1 {
+  font-size: 18px;
+  margin: 0 0 4px 0;
+}
+
+.sidebar .subtitle {
+  color: var(--muted);
+  font-size: 13px;
+  margin-bottom: 8px;
+}
+
+.kpi-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.kpi-card {
+  background: #0f151d;
+  border: 1px solid var(--panel-border);
+  border-radius: 10px;
+  padding: 12px;
+}
+
+.kpi-card .label {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.kpi-card .value {
+  font-size: 22px;
+  font-weight: 600;
+  margin-top: 4px;
+}
+
+.main-area {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+}
+
+.map-container {
+  flex: 1;
+  position: relative;
+}
+
+.chart-panel {
+  height: 220px;
+  border-top: 1px solid var(--panel-border);
+  background: var(--panel);
+  padding: 8px 16px;
+}
+
+.status-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--panel-border);
+}
+
+.status-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+}
+
+.status-dot.GREEN { background: var(--green); }
+.status-dot.YELLOW { background: var(--yellow); }
+.status-dot.RED { background: var(--red); }
+
+.sim-slider {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.sim-slider input[type="range"] {
+  width: 100%;
+}
+
+.ws-indicator {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  z-index: 10;
+  background: rgba(18, 24, 32, 0.85);
+  border: 1px solid var(--panel-border);
+  border-radius: 999px;
+  padding: 6px 12px;
+  font-size: 12px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
