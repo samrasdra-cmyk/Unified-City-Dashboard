@@ -1,5 +1,8 @@
 FROM python:3.11-slim
 
+# Install system CA certificates
+RUN apt-get update && apt-get install -y ca-certificates && update-ca-certificates
+
 WORKDIR /app
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
