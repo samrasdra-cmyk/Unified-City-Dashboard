@@ -66,12 +66,14 @@ class Settings(BaseSettings):
         elif value.startswith("postgres://"):
             value = value.replace("postgres://", "postgresql+asyncpg://", 1)
 
-        # Providers commonly append `sslmode=require`, a libpq/psycopg option.
-        # SQLAlchemy forwards URL query parameters to asyncpg, which expects `ssl`.
+        # Providers commonly append libpq/psycopg-only options. SQLAlchemy
+        # forwards URL query parameters to asyncpg, which expects `ssl` and does
+        # not support `channel_binding`.
         url = urlsplit(value)
         query = [
             ("ssl" if key == "sslmode" else key, item_value)
             for key, item_value in parse_qsl(url.query, keep_blank_values=True)
+            if key != "channel_binding"
         ]
         return urlunsplit((url.scheme, url.netloc, url.path, urlencode(query), url.fragment))
 
