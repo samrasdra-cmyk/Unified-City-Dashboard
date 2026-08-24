@@ -3,6 +3,7 @@ FROM python:3.11-slim
 # Install system CA certificates
 RUN apt-get update && apt-get install -y ca-certificates && update-ca-certificates
 
+COPY certs/ca.pem /app/certs/ca.pem
 WORKDIR /app
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
