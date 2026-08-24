@@ -14,13 +14,13 @@ _producer: Producer | None = None
 def get_producer() -> Producer:
     global _producer
     if _producer is None:
-        _producer = Producer({"bootstrap.servers": settings.KAFKA_BOOTSTRAP_SERVERS})
+        _producer = Producer(settings.kafka_client_config)
     return _producer
 
 
 def ensure_topics() -> None:
     """Create the required Kafka topics if they don't already exist."""
-    admin = AdminClient({"bootstrap.servers": settings.KAFKA_BOOTSTRAP_SERVERS})
+    admin = AdminClient(settings.kafka_client_config)
     topics = [
         settings.KAFKA_TOPIC_TRAFFIC,
         settings.KAFKA_TOPIC_AIR,

@@ -38,13 +38,12 @@ _windows = {
 
 
 def _make_consumer(group_suffix: str) -> Consumer:
-    return Consumer(
-        {
-            "bootstrap.servers": settings.KAFKA_BOOTSTRAP_SERVERS,
-            "group.id": f"{settings.KAFKA_CONSUMER_GROUP}-{group_suffix}",
-            "auto.offset.reset": "latest",
-        }
-    )
+    config = {
+        **settings.kafka_client_config,
+        "group.id": f"{settings.KAFKA_CONSUMER_GROUP}-{group_suffix}",
+        "auto.offset.reset": "latest",
+    }
+    return Consumer(config)
 
 
 async def _update_snapshot():

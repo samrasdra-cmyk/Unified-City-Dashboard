@@ -4,10 +4,14 @@ from app.core.config import get_settings
 
 settings = get_settings()
 
-redis_client = aioredis.Redis(
-    host=settings.REDIS_HOST,
-    port=settings.REDIS_PORT,
-    decode_responses=True,
+redis_client = (
+    aioredis.Redis.from_url(settings.REDIS_URL, decode_responses=True)
+    if settings.REDIS_URL
+    else aioredis.Redis(
+        host=settings.REDIS_HOST,
+        port=settings.REDIS_PORT,
+        decode_responses=True,
+    )
 )
 
 

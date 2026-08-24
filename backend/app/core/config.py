@@ -1,4 +1,5 @@
 from functools import lru_cache
+from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -33,6 +34,11 @@ class Settings(BaseSettings):
 
     # Kafka
     KAFKA_BOOTSTRAP_SERVERS: str = "kafka:9092"
+    # Leave empty for local Docker Kafka. Aiven uses SASL_SSL and PLAIN.
+    KAFKA_SECURITY_PROTOCOL: str = ""
+    KAFKA_SASL_MECHANISM: str = "PLAIN"
+    KAFKA_USERNAME: str = ""
+    KAFKA_PASSWORD: str = ""
     KAFKA_TOPIC_TRAFFIC: str = "traffic.speed"
     KAFKA_TOPIC_AIR: str = "air.quality"
     KAFKA_TOPIC_TRANSIT: str = "transit.gps"
@@ -49,15 +55,39 @@ class Settings(BaseSettings):
         "postgresql+asyncpg://citydashboard:citydashboard_pw@postgis:5432/citydashboard"
     )
 
+    @field_validator("DATABASE_URL", mode="before")
+    @classmethod
+    def use_asyncpg_driver(cls, value: str) -> str:
+        """Accept provider URLs such as Neon's `postgresql://...` in env vars."""
+        if value.startswith("postgresql://"):
+            return value.replace("postgresql://", "postgresql+asyncpg://", 1)
+        if value.startswith("postgres://"):
+            return value.replace("postgres://", "postgresql+asyncpg://", 1)
+        return value
+
     # Redis
     REDIS_HOST: str = "redis"
     REDIS_PORT: int = 6379
+    # A full connection URL takes precedence over REDIS_HOST and REDIS_PORT.
+    REDIS_URL: str = ""
     REDIS_SNAPSHOT_TTL_SECONDS: int = 10
 
     @property
     def effective_api_adapter_enabled(self) -> bool:
         """Force-disable the real adapter if no TomTom key is configured."""
         return bool(self.API_ADAPTER_ENABLED and self.TOMTOM_API_KEY)
+
+    @property
+    def kafka_client_config(self) -> dict[str, str]:
+        """Connection options shared by Kafka producers, consumers, and admin clients."""
+        config = {"bootstrap.servers": self.KAFKA_BOOTSTRAP_SERVERS}
+        if self.KAFKA_SECURITY_PROTOCOL:
+            config["security.protocol"] = self.KAFKA_SECURITY_PROTOCOL
+        if self.KAFKA_USERNAME:
+            config["sasl.mechanism"] = self.KAFKA_SASL_MECHANISM
+            config["sasl.username"] = self.KAFKA_USERNAME
+            config["sasl.password"] = self.KAFKA_PASSWORD
+        return config
 
 
 @lru_cache

@@ -20,7 +20,8 @@ depends_on: Union[str, Sequence[str], None] = None
 
 def upgrade() -> None:
     op.execute("CREATE EXTENSION IF NOT EXISTS postgis")
-    op.execute("CREATE EXTENSION IF NOT EXISTS timescaledb")
+    # TimescaleDB is not required by this schema and is unavailable on many
+    # managed PostgreSQL providers. Keeping PostGIS alone makes Neon usable.
 
     op.create_table(
         "traffic_readings",
