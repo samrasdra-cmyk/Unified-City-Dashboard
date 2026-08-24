@@ -3,6 +3,7 @@ from datetime import datetime, timedelta, timezone
 
 import orjson
 from fastapi import APIRouter, Query
+from redis.exceptions import RedisError
 from sqlalchemy import select, text
 
 from app.core.db import AsyncSessionLocal
@@ -19,13 +20,22 @@ logger = logging.getLogger("dashboard_api")
 router = APIRouter(prefix="/api/v1/dashboard", tags=["dashboard"])
 
 
-@router.get("/latest", response_model=DashboardSnapshot)
-async def get_latest():
-    raw = await redis_client.get("dashboard:snapshot")
+async def _get_cached_snapshot() -> DashboardSnapshot:
+    """Return a cache snapshot without making Redis availability a UI outage."""
+    try:
+        raw = await redis_client.get("dashboard:snapshot")
+    except RedisError as exc:
+        logger.warning("Redis is unavailable; returning an empty dashboard snapshot: %s", exc)
+        return DashboardSnapshot()
+
     if raw is None:
         return DashboardSnapshot()
-    data = orjson.loads(raw)
-    return DashboardSnapshot(**data)
+    return DashboardSnapshot(**orjson.loads(raw))
+
+
+@router.get("/latest", response_model=DashboardSnapshot)
+async def get_latest():
+    return await _get_cached_snapshot()
 
 
 @router.get("/heatmap")
@@ -118,11 +128,8 @@ async def get_history(
 
 @router.post("/simulate/population", response_model=PopulationSimulationResponse)
 async def simulate_population(payload: PopulationSimulationRequest):
-    raw = await redis_client.get("dashboard:snapshot")
-    avg_speed = None
-    if raw:
-        data = orjson.loads(raw)
-        avg_speed = data.get("avg_speed_kmh")
+    snapshot = await _get_cached_snapshot()
+    avg_speed = snapshot.avg_speed_kmh
 
     # Rough congestion index estimate from avg speed if we don't have one directly
     current_congestion = 0.3
