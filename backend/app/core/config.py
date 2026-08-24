@@ -1,4 +1,6 @@
 from functools import lru_cache
+from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
+
 from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -58,12 +60,20 @@ class Settings(BaseSettings):
     @field_validator("DATABASE_URL", mode="before")
     @classmethod
     def use_asyncpg_driver(cls, value: str) -> str:
-        """Accept provider URLs such as Neon's `postgresql://...` in env vars."""
+        """Accept hosted-Postgres URLs with asyncpg-compatible options."""
         if value.startswith("postgresql://"):
-            return value.replace("postgresql://", "postgresql+asyncpg://", 1)
-        if value.startswith("postgres://"):
-            return value.replace("postgres://", "postgresql+asyncpg://", 1)
-        return value
+            value = value.replace("postgresql://", "postgresql+asyncpg://", 1)
+        elif value.startswith("postgres://"):
+            value = value.replace("postgres://", "postgresql+asyncpg://", 1)
+
+        # Providers commonly append `sslmode=require`, a libpq/psycopg option.
+        # SQLAlchemy forwards URL query parameters to asyncpg, which expects `ssl`.
+        url = urlsplit(value)
+        query = [
+            ("ssl" if key == "sslmode" else key, item_value)
+            for key, item_value in parse_qsl(url.query, keep_blank_values=True)
+        ]
+        return urlunsplit((url.scheme, url.netloc, url.path, urlencode(query), url.fragment))
 
     # Redis
     REDIS_HOST: str = "redis"
