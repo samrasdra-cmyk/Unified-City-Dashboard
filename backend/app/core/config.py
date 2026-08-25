@@ -1,4 +1,5 @@
 from functools import lru_cache
+import os
 from pathlib import Path
 from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
@@ -42,8 +43,9 @@ class Settings(BaseSettings):
     KAFKA_SASL_MECHANISM: str = "PLAIN"
     KAFKA_USERNAME: str = ""
     KAFKA_PASSWORD: str = ""
-    # Optional Aiven CA bundle. If absent, librdkafka uses the system trust store.
-    KAFKA_SSL_CA_LOCATION: str = "./ca.pem"
+    # Optional Aiven CA bundle or raw PEM string
+    KAFKA_SSL_CA_LOCATION: str = ""
+    KAFKA_SSL_CA_PEM: str = ""
     KAFKA_TOPIC_TRAFFIC: str = "traffic.speed"
     KAFKA_TOPIC_AIR: str = "air.quality"
     KAFKA_TOPIC_TRANSIT: str = "transit.gps"
@@ -95,15 +97,31 @@ class Settings(BaseSettings):
     @property
     def kafka_client_config(self) -> dict[str, str]:
         """Connection options shared by Kafka producers, consumers, and admin clients."""
-        config = {"bootstrap.servers": self.KAFKA_BOOTSTRAP_SERVERS}
+        config: dict[str, str] = {"bootstrap.servers": self.KAFKA_BOOTSTRAP_SERVERS}
         if self.KAFKA_SECURITY_PROTOCOL:
             config["security.protocol"] = self.KAFKA_SECURITY_PROTOCOL
         if self.KAFKA_USERNAME:
             config["sasl.mechanism"] = self.KAFKA_SASL_MECHANISM
             config["sasl.username"] = self.KAFKA_USERNAME
             config["sasl.password"] = self.KAFKA_PASSWORD
-        if Path(self.KAFKA_SSL_CA_LOCATION).is_file():
-            config["ssl.ca.location"] = self.KAFKA_SSL_CA_LOCATION
+
+        # Resolve CA cert from PEM string, explicit path, or standard fallback paths
+        if self.KAFKA_SSL_CA_PEM:
+            config["ssl.ca.pem"] = self.KAFKA_SSL_CA_PEM
+        else:
+            candidates = [
+                self.KAFKA_SSL_CA_LOCATION,
+                os.path.join(os.path.dirname(__file__), "..", "ca.pem"),
+                "ca.pem",
+                "./ca.pem",
+                "/app/ca.pem",
+                "/app/app/ca.pem",
+            ]
+            for candidate in candidates:
+                if candidate and Path(candidate).is_file():
+                    config["ssl.ca.location"] = str(Path(candidate).resolve())
+                    break
+
         return config
 
 

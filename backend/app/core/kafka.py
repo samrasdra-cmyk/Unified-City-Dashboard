@@ -1,5 +1,4 @@
 import logging
-import os
 
 from confluent_kafka import Producer
 from confluent_kafka.admin import AdminClient, NewTopic
@@ -13,14 +12,8 @@ _producer: Producer | None = None
 
 
 def _get_kafka_config() -> dict:
-    """Return Kafka client config with SSL CA location explicitly set."""
-    config = settings.kafka_client_config.copy()
-
-    # Use the bundled CA certificate from Aiven
-    ca_path = os.getenv("KAFKA_SSL_CA_LOCATION", "./ca.pem")
-    config["ssl.ca.location"] = ca_path
-
-    return config
+    """Return Kafka client config."""
+    return settings.kafka_client_config.copy()
 
 
 def get_producer() -> Producer:

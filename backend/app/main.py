@@ -52,6 +52,12 @@ app.include_router(admin.router)
 app.include_router(websocket.router)
 
 
+@app.get("/")
+@app.head("/")
+async def root():
+    return {"status": "ok", "service": "Unified City Dashboard API", "city": settings.CITY_NAME}
+
+
 @app.get("/health")
 async def health():
     return {"status": "ok", "city": settings.CITY_NAME}
