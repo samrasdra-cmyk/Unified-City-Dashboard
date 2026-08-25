@@ -12,61 +12,70 @@ export default function MapView({ centerLat = 52.52, centerLng = 13.405 }: Props
   const mapRef = useRef<maplibregl.Map | null>(null);
 
   useEffect(() => {
-    if (!containerRef.current || mapRef.current) return;
+    if (!containerRef.current) return;
 
-    // Create map with free OpenFreeMap style (no token!)
-    mapRef.current = new maplibregl.Map({
+    // Use reliable CartoDB dark matter / voyager style with raster tiles
+    const map = new maplibregl.Map({
       container: containerRef.current,
-      style: 'https://tiles.openfreemap.org/styles/positron', // or 'liberty' / 'refuge'
+      style: {
+        version: 8,
+        sources: {
+          'osm-tiles': {
+            type: 'raster',
+            tiles: [
+              'https://a.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}@2x.png',
+              'https://b.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}@2x.png',
+              'https://c.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}@2x.png',
+              'https://d.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}@2x.png',
+            ],
+            tileSize: 256,
+            attribution: '&copy; <a href="https://carto.com/">CARTO</a> &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+          },
+        },
+        layers: [
+          {
+            id: 'osm-tiles-layer',
+            type: 'raster',
+            source: 'osm-tiles',
+            minzoom: 0,
+            maxzoom: 19,
+          },
+        ],
+      },
       center: [centerLng, centerLat],
       zoom: 12,
     });
 
-    mapRef.current.addControl(new maplibregl.NavigationControl(), 'top-left');
+    map.addControl(new maplibregl.NavigationControl(), 'top-left');
 
-    // Example: add heatmap layer (uncomment when you have data)
-    // mapRef.current.on('load', () => {
-    //   mapRef.current!.addSource('traffic', {
-    //     type: 'geojson',
-    //     data: { type: 'FeatureCollection', features: [] }
-    //   });
-    //   mapRef.current!.addLayer({
-    //     id: 'traffic-heat',
-    //     type: 'heatmap',
-    //     source: 'traffic',
-    //     paint: {
-    //       'heatmap-weight': 0.6,
-    //       'heatmap-intensity': 0.8,
-    //       'heatmap-color': [
-    //         'interpolate',
-    //         ['linear'],
-    //         ['heatmap-density'],
-    //         0, 'rgba(0,0,255,0)',
-    //         0.2, 'rgb(0,0,255)',
-    //         0.4, 'rgb(0,255,255)',
-    //         0.6, 'rgb(0,255,0)',
-    //         0.8, 'rgb(255,255,0)',
-    //         1, 'rgb(255,0,0)'
-    //       ]
-    //     }
-    //   });
-    // });
+    mapRef.current = map;
 
-    // Example: add markers (using DOM elements)
-    // mapRef.current.on('load', () => {
-    //   const el = document.createElement('div');
-    //   el.className = 'vehicle-marker';
-    //   new maplibregl.Marker(el)
-    //     .setLngLat([13.405, 52.52])
-    //     .addTo(mapRef.current!);
-    // });
+    // Ensure map resizes correctly when container renders
+    const resizeObserver = new ResizeObserver(() => {
+      map.resize();
+    });
+    resizeObserver.observe(containerRef.current);
 
     return () => {
-      mapRef.current?.remove();
+      resizeObserver.disconnect();
+      map.remove();
       mapRef.current = null;
     };
   }, [centerLat, centerLng]);
 
-  // No token check needed – always render the map
-  return <div ref={containerRef} style={{ width: '100%', height: '100%' }} />;
+  return (
+    <div
+      ref={containerRef}
+      style={{
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        width: '100%',
+        height: '100%',
+        minHeight: '300px',
+      }}
+    />
+  );
 }
