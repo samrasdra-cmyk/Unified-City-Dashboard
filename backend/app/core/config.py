@@ -18,8 +18,6 @@ class Settings(BaseSettings):
     TOMTOM_API_KEY: str = ""
     OPENWEATHER_API_KEY: str = ""
     GTFS_RT_URL: str = ""
-    WASTE_API_URL: str = ""
-    WASTE_API_KEY: str = ""
 
     # City grid
     CITY_NAME: str = "Sample City"
