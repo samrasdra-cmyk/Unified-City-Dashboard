@@ -14,10 +14,34 @@ export default function MapView({ centerLat = 52.52, centerLng = 13.405 }: Props
   useEffect(() => {
     if (!containerRef.current) return;
 
-    // Use OpenFreeMap Liberty style – no API key required!
+    // Use OSM raster tiles – no API key, universally supported
     const map = new maplibregl.Map({
       container: containerRef.current,
-      style: 'https://tiles.openfreemap.org/styles/liberty',
+      style: {
+        version: 8,
+        sources: {
+          'osm-raster': {
+            type: 'raster',
+            tiles: [
+              'https://a.tile.openstreetmap.org/{z}/{x}/{y}.png',
+              'https://b.tile.openstreetmap.org/{z}/{x}/{y}.png',
+              'https://c.tile.openstreetmap.org/{z}/{x}/{y}.png',
+            ],
+            tileSize: 256,
+            attribution:
+              '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+          },
+        },
+        layers: [
+          {
+            id: 'osm-raster-layer',
+            type: 'raster',
+            source: 'osm-raster',
+            minzoom: 0,
+            maxzoom: 19,
+          },
+        ],
+      },
       center: [centerLng, centerLat],
       zoom: 12,
     });
