@@ -14,35 +14,10 @@ export default function MapView({ centerLat = 52.52, centerLng = 13.405 }: Props
   useEffect(() => {
     if (!containerRef.current) return;
 
-    // Create map with reliable tiles
+    // Use OpenFreeMap Liberty style – no API key required!
     const map = new maplibregl.Map({
       container: containerRef.current,
-      style: {
-        version: 8,
-        sources: {
-          'osm-tiles': {
-            type: 'raster',
-            tiles: [
-              'https://a.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}@2x.png',
-              'https://b.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}@2x.png',
-              'https://c.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}@2x.png',
-              'https://d.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}@2x.png',
-            ],
-            tileSize: 256,
-            attribution:
-              '&copy; <a href="https://carto.com/">CARTO</a> &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
-          },
-        },
-        layers: [
-          {
-            id: 'osm-tiles-layer',
-            type: 'raster',
-            source: 'osm-tiles',
-            minzoom: 0,
-            maxzoom: 19,
-          },
-        ],
-      },
+      style: 'https://tiles.openfreemap.org/styles/liberty',
       center: [centerLng, centerLat],
       zoom: 12,
     });
@@ -53,7 +28,6 @@ export default function MapView({ centerLat = 52.52, centerLng = 13.405 }: Props
     // Force resize after layout settles
     setTimeout(() => map.resize(), 100);
 
-    // Resize observer for container changes
     const resizeObserver = new ResizeObserver(() => {
       map.resize();
     });
