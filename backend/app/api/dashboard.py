@@ -45,58 +45,62 @@ async def get_heatmap(
     limit: int = 500,
 ):
     """Return a GeoJSON FeatureCollection of the most recent readings from PostGIS."""
-    async with AsyncSessionLocal() as session:
-        if type == "traffic":
-            stmt = (
-                select(
-                    TrafficReading.segment_id,
-                    TrafficReading.current_speed_kmh,
-                    TrafficReading.congestion_index,
-                    TrafficReading.recorded_at,
-                    TrafficReading.location.ST_AsGeoJSON().label("geom"),
+    try:
+        async with AsyncSessionLocal() as session:
+            if type == "traffic":
+                stmt = (
+                    select(
+                        TrafficReading.segment_id,
+                        TrafficReading.current_speed_kmh,
+                        TrafficReading.congestion_index,
+                        TrafficReading.recorded_at,
+                        TrafficReading.location.ST_AsGeoJSON().label("geom"),
+                    )
+                    .order_by(TrafficReading.recorded_at.desc())
+                    .limit(limit)
                 )
-                .order_by(TrafficReading.recorded_at.desc())
-                .limit(limit)
-            )
-        elif type == "air":
-            stmt = (
-                select(
-                    AirQualityReading.station_id,
-                    AirQualityReading.aqi,
-                    AirQualityReading.pm2_5,
-                    AirQualityReading.recorded_at,
-                    AirQualityReading.location.ST_AsGeoJSON().label("geom"),
+            elif type == "air":
+                stmt = (
+                    select(
+                        AirQualityReading.station_id,
+                        AirQualityReading.aqi,
+                        AirQualityReading.pm2_5,
+                        AirQualityReading.recorded_at,
+                        AirQualityReading.location.ST_AsGeoJSON().label("geom"),
+                    )
+                    .order_by(AirQualityReading.recorded_at.desc())
+                    .limit(limit)
                 )
-                .order_by(AirQualityReading.recorded_at.desc())
-                .limit(limit)
-            )
-        else:
-            stmt = (
-                select(
-                    TemperatureReading.point_id,
-                    TemperatureReading.thermal_comfort,
-                    TemperatureReading.feels_like,
-                    TemperatureReading.heat_index,
-                    TemperatureReading.humidity,
-                    TemperatureReading.recorded_at,
-                    TemperatureReading.location.ST_AsGeoJSON().label("geom"),
+            else:
+                stmt = (
+                    select(
+                        TemperatureReading.point_id,
+                        TemperatureReading.thermal_comfort,
+                        TemperatureReading.feels_like,
+                        TemperatureReading.heat_index,
+                        TemperatureReading.humidity,
+                        TemperatureReading.recorded_at,
+                        TemperatureReading.location.ST_AsGeoJSON().label("geom"),
+                    )
+                    .order_by(TemperatureReading.recorded_at.desc())
+                    .limit(limit)
                 )
-                .order_by(TemperatureReading.recorded_at.desc())
-                .limit(limit)
-            )
 
-        result = await session.execute(stmt)
-        rows = result.mappings().all()
+            result = await session.execute(stmt)
+            rows = result.mappings().all()
 
-    features = []
-    for row in rows:
-        geom = orjson.loads(row["geom"]) if row["geom"] else None
-        props = {k: v for k, v in row.items() if k != "geom"}
-        if isinstance(props.get("recorded_at"), datetime):
-            props["recorded_at"] = props["recorded_at"].isoformat()
-        features.append({"type": "Feature", "geometry": geom, "properties": props})
+        features = []
+        for row in rows:
+            geom = orjson.loads(row["geom"]) if row["geom"] else None
+            props = {k: v for k, v in row.items() if k != "geom"}
+            if isinstance(props.get("recorded_at"), datetime):
+                props["recorded_at"] = props["recorded_at"].isoformat()
+            features.append({"type": "Feature", "geometry": geom, "properties": props})
 
-    return {"type": "FeatureCollection", "features": features}
+        return {"type": "FeatureCollection", "features": features}
+    except Exception as exc:
+        logger.error("Error retrieving %s heatmap data: %s", type, exc)
+        return {"type": "FeatureCollection", "features": []}
 
 
 @router.get("/history")
