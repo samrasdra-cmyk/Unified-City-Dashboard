@@ -22,7 +22,7 @@ from shapely.geometry import Point
 from app.core.config import get_settings
 from app.core.db import AsyncSessionLocal
 from app.core.redis import redis_client
-from app.models.orm import AirQualityReading, TrafficReading, TransitPosition, WasteReading
+from app.models.orm import AirQualityReading, TemperatureReading, TrafficReading, TransitPosition, WasteReading
 
 logger = logging.getLogger("kafka_consumer")
 settings = get_settings()
@@ -34,6 +34,7 @@ _windows = {
     "air": deque(maxlen=WINDOW_SIZE),
     "transit": deque(maxlen=WINDOW_SIZE),
     "waste": deque(maxlen=WINDOW_SIZE),
+    "temperature": deque(maxlen=WINDOW_SIZE),
 }
 
 
@@ -52,6 +53,7 @@ async def _update_snapshot():
     air = _windows["air"]
     transit = _windows["transit"]
     waste = _windows["waste"]
+    temperature = _windows["temperature"]
 
     avg_speed = sum(r["current_speed_kmh"] for r in traffic) / len(traffic) if traffic else None
     avg_aqi = sum(r["aqi"] for r in air) / len(air) if air else None
@@ -59,12 +61,20 @@ async def _update_snapshot():
         100 * sum(1 for r in transit if r["on_time"]) / len(transit) if transit else None
     )
     avg_waste = sum(r["fill_level_pct"] for r in waste) / len(waste) if waste else None
+    avg_thermal = (
+        sum(r["thermal_comfort"] for r in temperature) / len(temperature) if temperature else None
+    )
+    avg_feels = (
+        sum(r["feels_like"] for r in temperature) / len(temperature) if temperature else None
+    )
 
     snapshot = {
         "avg_speed_kmh": round(avg_speed, 1) if avg_speed is not None else None,
         "avg_aqi": round(avg_aqi, 2) if avg_aqi is not None else None,
         "transit_on_time_pct": round(on_time_pct, 1) if on_time_pct is not None else None,
         "avg_waste_fill_pct": round(avg_waste, 1) if avg_waste is not None else None,
+        "thermal_comfort": round(avg_thermal, 1) if avg_thermal is not None else None,
+        "feels_like": round(avg_feels, 1) if avg_feels is not None else None,
         "updated_at": datetime.now(timezone.utc).isoformat(),
     }
     await redis_client.set(
@@ -128,11 +138,27 @@ async def _persist_waste(record: dict):
         await session.commit()
 
 
+async def _persist_temperature(record: dict):
+    async with AsyncSessionLocal() as session:
+        row = TemperatureReading(
+            point_id=record["point_id"],
+            location=from_shape(Point(record["lng"], record["lat"]), srid=4326),
+            thermal_comfort=record["thermal_comfort"],
+            feels_like=record["feels_like"],
+            heat_index=record["heat_index"],
+            humidity=record["humidity"],
+            source=record["source"],
+        )
+        session.add(row)
+        await session.commit()
+
+
 PERSIST_FN = {
     "traffic": _persist_traffic,
     "air": _persist_air,
     "transit": _persist_transit,
     "waste": _persist_waste,
+    "temperature": _persist_temperature,
 }
 
 
@@ -175,4 +201,5 @@ async def start_kafka_consumers():
         _consume_topic("air", settings.KAFKA_TOPIC_AIR),
         _consume_topic("transit", settings.KAFKA_TOPIC_TRANSIT),
         _consume_topic("waste", settings.KAFKA_TOPIC_WASTE),
+        _consume_topic("temperature", settings.KAFKA_TOPIC_TEMPERATURE),
     )

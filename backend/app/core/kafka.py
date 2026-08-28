@@ -31,6 +31,7 @@ def ensure_topics() -> None:
         settings.KAFKA_TOPIC_AIR,
         settings.KAFKA_TOPIC_TRANSIT,
         settings.KAFKA_TOPIC_WASTE,
+        settings.KAFKA_TOPIC_TEMPERATURE,
     ]
     existing = admin.list_topics(timeout=10).topics.keys()
     new_topics = [

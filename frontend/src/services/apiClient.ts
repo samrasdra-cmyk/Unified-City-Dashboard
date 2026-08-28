@@ -13,9 +13,9 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
 
 export const apiClient = {
   getLatestSnapshot: () => request("/api/v1/dashboard/latest"),
-  getHeatmap: (type: "traffic" | "air") =>
+  getHeatmap: (type: "traffic" | "air" | "temperature") =>
     request(`/api/v1/dashboard/heatmap?type=${type}`),
-  getHistory: (metric: "aqi" | "traffic", hours = 6) =>
+  getHistory: (metric: "aqi" | "traffic" | "temperature", hours = 6) =>
     request(`/api/v1/dashboard/history?metric=${metric}&hours=${hours}`),
   getConnectorStatus: () => request("/api/v1/admin/connectors/status"),
   simulatePopulation: (increase_percent: number) =>

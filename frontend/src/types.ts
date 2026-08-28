@@ -3,6 +3,8 @@ export interface DashboardSnapshot {
   avg_aqi: number | null;
   transit_on_time_pct: number | null;
   avg_waste_fill_pct: number | null;
+  thermal_comfort?: number | null;
+  feels_like?: number | null;
   updated_at: string | null;
 }
 

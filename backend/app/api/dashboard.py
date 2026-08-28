@@ -8,7 +8,7 @@ from sqlalchemy import select, text
 
 from app.core.db import AsyncSessionLocal
 from app.core.redis import redis_client
-from app.models.orm import AirQualityReading, TrafficReading
+from app.models.orm import AirQualityReading, TemperatureReading, TrafficReading
 from app.models.schemas import (
     DashboardSnapshot,
     PopulationSimulationRequest,
@@ -40,7 +40,7 @@ async def get_latest():
 
 @router.get("/heatmap")
 async def get_heatmap(
-    type: str = Query(..., pattern="^(traffic|air)$"),
+    type: str = Query(..., pattern="^(traffic|air|temperature)$"),
     bbox: str | None = Query(None, description="minLng,minLat,maxLng,maxLat"),
     limit: int = 500,
 ):
@@ -58,7 +58,7 @@ async def get_heatmap(
                 .order_by(TrafficReading.recorded_at.desc())
                 .limit(limit)
             )
-        else:
+        elif type == "air":
             stmt = (
                 select(
                     AirQualityReading.station_id,
@@ -68,6 +68,20 @@ async def get_heatmap(
                     AirQualityReading.location.ST_AsGeoJSON().label("geom"),
                 )
                 .order_by(AirQualityReading.recorded_at.desc())
+                .limit(limit)
+            )
+        else:
+            stmt = (
+                select(
+                    TemperatureReading.point_id,
+                    TemperatureReading.thermal_comfort,
+                    TemperatureReading.feels_like,
+                    TemperatureReading.heat_index,
+                    TemperatureReading.humidity,
+                    TemperatureReading.recorded_at,
+                    TemperatureReading.location.ST_AsGeoJSON().label("geom"),
+                )
+                .order_by(TemperatureReading.recorded_at.desc())
                 .limit(limit)
             )
 
@@ -87,7 +101,7 @@ async def get_heatmap(
 
 @router.get("/history")
 async def get_history(
-    metric: str = Query(..., pattern="^(aqi|traffic)$"),
+    metric: str = Query(..., pattern="^(aqi|traffic|temperature)$"),
     hours: int = Query(24, ge=1, le=168),
 ):
     """Time-bucketed averages over the requested window, for the trend chart."""
@@ -105,12 +119,23 @@ async def get_history(
                 ORDER BY bucket
                 """
             )
-        else:
+        elif metric == "traffic":
             stmt = text(
                 """
                 SELECT date_trunc('minute', recorded_at) AS bucket,
                        avg(current_speed_kmh) AS value
                 FROM traffic_readings
+                WHERE recorded_at >= :since
+                GROUP BY bucket
+                ORDER BY bucket
+                """
+            )
+        else:
+            stmt = text(
+                """
+                SELECT date_trunc('minute', recorded_at) AS bucket,
+                       avg(thermal_comfort) AS value
+                FROM temperature_readings
                 WHERE recorded_at >= :since
                 GROUP BY bucket
                 ORDER BY bucket

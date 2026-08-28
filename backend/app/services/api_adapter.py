@@ -22,7 +22,7 @@ import httpx
 from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
 
 from app.core.config import get_settings
-from app.models.schemas import AirQualityRecord, TrafficRecord, TransitRecord, WasteRecord
+from app.models.schemas import AirQualityRecord, TemperatureRecord, TrafficRecord, TransitRecord, WasteRecord
 from app.services.kafka_producer import publish
 
 logger = logging.getLogger("api_adapter")
@@ -78,11 +78,13 @@ class CircuitBreaker:
 traffic_breaker = CircuitBreaker("tomtom_traffic", settings.CIRCUIT_BREAKER_FAILURE_THRESHOLD, settings.CIRCUIT_BREAKER_RESET_SECONDS)
 air_breaker = CircuitBreaker("openweather_air", settings.CIRCUIT_BREAKER_FAILURE_THRESHOLD, settings.CIRCUIT_BREAKER_RESET_SECONDS)
 transit_breaker = CircuitBreaker("gtfs_rt_transit", settings.CIRCUIT_BREAKER_FAILURE_THRESHOLD, settings.CIRCUIT_BREAKER_RESET_SECONDS)
+temperature_breaker = CircuitBreaker("fortyguard_temperature", settings.CIRCUIT_BREAKER_FAILURE_THRESHOLD, settings.CIRCUIT_BREAKER_RESET_SECONDS)
 
 BREAKERS = {
     "traffic": traffic_breaker,
     "air": air_breaker,
     "transit": transit_breaker,
+    "temperature": temperature_breaker,
 }
 
 
@@ -249,19 +251,6 @@ async def poll_air_quality_once(client: httpx.AsyncClient) -> None:
 
 # --------------------------------------------------------------------------- #
 # Public Transport (GTFS-RT)
-#
-# NOTE: Setting up a real GTFS-RT feed requires a city-specific static GTFS
-# schedule + a vehicle-positions.pb realtime endpoint. For this MVP we stub
-# realistic mock bus GPS data. To wire up a real feed later:
-#
-#   from google.transit import gtfs_realtime_pb2
-#   import httpx
-#   resp = await client.get(settings.GTFS_RT_URL)
-#   feed = gtfs_realtime_pb2.FeedMessage()
-#   feed.ParseFromString(resp.content)
-#   for entity in feed.entity:
-#       vp = entity.vehicle
-#       ... map vp.position.latitude / longitude / speed into TransitRecord
 # --------------------------------------------------------------------------- #
 _BUS_STATE: dict[str, tuple[float, float]] = {}
 
@@ -290,7 +279,7 @@ def _simulate_transit_point(vehicle_id: str, route_id: str) -> TransitRecord:
 
 
 async def poll_transit_once(client: httpx.AsyncClient) -> None:
-    # GTFS_RT_URL not configured -> always stubbed for MVP (documented above).
+    # GTFS_RT_URL not configured -> always stubbed for MVP
     for i in range(12):
         vehicle_id = f"bus-{i}"
         route_id = f"route-{i % 4}"
@@ -317,6 +306,78 @@ async def poll_waste_once(client: httpx.AsyncClient) -> None:
 
 
 # --------------------------------------------------------------------------- #
+# FortyGuard Temperature AI
+# --------------------------------------------------------------------------- #
+@retry(
+    reraise=True,
+    stop=stop_after_attempt(3),
+    wait=wait_exponential(multiplier=1, min=1, max=8),
+    retry=retry_if_exception_type((httpx.HTTPStatusError, httpx.TransportError)),
+)
+async def _fetch_fortyguard_point(client: httpx.AsyncClient, lat: float, lng: float) -> dict:
+    url = settings.FORTYGUARD_API_URL
+    headers = {"Authorization": f"Bearer {settings.FORTYGUARD_API_KEY}"} if settings.FORTYGUARD_API_KEY else {}
+    params = {"lat": lat, "lon": lng}
+    resp = await client.get(url, headers=headers, params=params, timeout=10)
+    resp.raise_for_status()
+    return resp.json()
+
+
+def _simulate_temperature_point(point_id: str, lat: float, lng: float) -> TemperatureRecord:
+    # Typical city microclimate thermal variations
+    thermal_comfort = round(random.uniform(21.0, 29.5), 1)
+    feels_like = round(thermal_comfort + random.uniform(-1.5, 2.5), 1)
+    heat_index = round(feels_like + random.uniform(-0.5, 1.5), 1)
+    humidity = round(random.uniform(35.0, 75.0), 1)
+    return TemperatureRecord(
+        point_id=point_id,
+        lat=lat,
+        lng=lng,
+        thermal_comfort=thermal_comfort,
+        feels_like=feels_like,
+        heat_index=heat_index,
+        humidity=humidity,
+        source="simulator",
+        recorded_at=datetime.now(timezone.utc),
+    )
+
+
+async def poll_temperature_once(client: httpx.AsyncClient) -> None:
+    points = _grid_points()[::3] or [(settings.CITY_CENTER_LAT, settings.CITY_CENTER_LNG)]
+    use_simulator = not settings.FORTYGUARD_API_KEY or temperature_breaker.is_open
+
+    for idx, (lat, lng) in enumerate(points):
+        point_id = f"thermal-{idx}"
+        if use_simulator:
+            record = _simulate_temperature_point(point_id, lat, lng)
+        else:
+            try:
+                data = await _fetch_fortyguard_point(client, lat, lng)
+                thermal_comfort = float(data.get("thermal_comfort", data.get("temp", 24.0)))
+                feels_like = float(data.get("feels_like", thermal_comfort))
+                heat_index = float(data.get("heat_index", feels_like))
+                humidity = float(data.get("humidity", 50.0))
+                record = TemperatureRecord(
+                    point_id=point_id,
+                    lat=lat,
+                    lng=lng,
+                    thermal_comfort=thermal_comfort,
+                    feels_like=feels_like,
+                    heat_index=heat_index,
+                    humidity=humidity,
+                    source="fortyguard",
+                    recorded_at=datetime.now(timezone.utc),
+                )
+                temperature_breaker.record_success()
+            except Exception as e:  # noqa: BLE001
+                logger.warning("FortyGuard fetch failed for (%s, %s): %s", lat, lng, e)
+                temperature_breaker.record_failure()
+                record = _simulate_temperature_point(point_id, lat, lng)
+
+        publish(settings.KAFKA_TOPIC_TEMPERATURE, record.model_dump(mode="json"))
+
+
+# --------------------------------------------------------------------------- #
 # Background poller loops
 # --------------------------------------------------------------------------- #
 async def _loop(name: str, interval: int, fn, client: httpx.AsyncClient):
@@ -335,7 +396,7 @@ async def start_api_adapter():
             "Falling back to Simulator for all domains."
         )
     else:
-        logger.info("✅ API Adapter enabled. Polling TomTom / OpenWeatherMap for real data.")
+        logger.info("✅ API Adapter enabled. Polling TomTom / OpenWeatherMap / FortyGuard for real data.")
 
     async with httpx.AsyncClient() as client:
         await asyncio.gather(
@@ -343,4 +404,5 @@ async def start_api_adapter():
             _loop("air", settings.AIR_POLL_INTERVAL, poll_air_quality_once, client),
             _loop("transit", settings.TRANSIT_POLL_INTERVAL, poll_transit_once, client),
             _loop("waste", settings.WASTE_POLL_INTERVAL, poll_waste_once, client),
+            _loop("temperature", settings.TEMPERATURE_POLL_INTERVAL, poll_temperature_once, client),
         )

@@ -49,6 +49,8 @@ export default function App() {
           <KPICard label="Avg AQI" value={fmt(snapshot?.avg_aqi)} />
           <KPICard label="Transit On-Time" value={fmt(snapshot?.transit_on_time_pct, "%")} />
           <KPICard label="Avg Waste Fill" value={fmt(snapshot?.avg_waste_fill_pct, "%")} />
+          <KPICard label="Thermal Comfort" value={fmt(snapshot?.thermal_comfort, "°C")} />
+          <KPICard label="Feels Like" value={fmt(snapshot?.feels_like, "°C")} />
         </div>
 
         <div>

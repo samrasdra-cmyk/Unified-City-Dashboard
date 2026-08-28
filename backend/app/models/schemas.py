@@ -48,11 +48,25 @@ class WasteRecord(BaseModel):
     recorded_at: datetime
 
 
+class TemperatureRecord(BaseModel):
+    point_id: str
+    lat: float
+    lng: float
+    thermal_comfort: float
+    feels_like: float
+    heat_index: float
+    humidity: float
+    source: Literal["fortyguard", "simulator"]
+    recorded_at: datetime
+
+
 class DashboardSnapshot(BaseModel):
     avg_speed_kmh: float | None = None
     avg_aqi: float | None = None
     transit_on_time_pct: float | None = None
     avg_waste_fill_pct: float | None = None
+    thermal_comfort: float | None = None
+    feels_like: float | None = None
     updated_at: datetime | None = None
 
 

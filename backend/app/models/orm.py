@@ -59,3 +59,18 @@ class WasteReading(Base):
     fill_level_pct: Mapped[float] = mapped_column(Float)
     source: Mapped[str] = mapped_column(String, default="simulator")
     recorded_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), index=True)
+
+
+class TemperatureReading(Base):
+    __tablename__ = "temperature_readings"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    point_id: Mapped[str] = mapped_column(String, index=True)
+    location = mapped_column(Geometry(geometry_type="POINT", srid=4326))
+    thermal_comfort: Mapped[float] = mapped_column(Float)
+    feels_like: Mapped[float] = mapped_column(Float)
+    heat_index: Mapped[float] = mapped_column(Float)
+    humidity: Mapped[float] = mapped_column(Float)
+    source: Mapped[str] = mapped_column(String, default="simulator")
+    recorded_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), index=True)
+

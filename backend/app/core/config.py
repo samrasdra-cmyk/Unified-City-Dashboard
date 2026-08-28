@@ -18,6 +18,8 @@ class Settings(BaseSettings):
     TOMTOM_API_KEY: str = ""
     OPENWEATHER_API_KEY: str = ""
     GTFS_RT_URL: str = ""
+    FORTYGUARD_API_KEY: str = ""
+    FORTYGUARD_API_URL: str = "https://api.fortyguard.com/v1/thermal"
 
     # City grid
     CITY_NAME: str = "Sample City"
@@ -31,6 +33,7 @@ class Settings(BaseSettings):
     AIR_POLL_INTERVAL: int = 900
     TRANSIT_POLL_INTERVAL: int = 15
     WASTE_POLL_INTERVAL: int = 300
+    TEMPERATURE_POLL_INTERVAL: int = 300
 
     # Circuit breaker
     CIRCUIT_BREAKER_FAILURE_THRESHOLD: int = 3
@@ -50,6 +53,7 @@ class Settings(BaseSettings):
     KAFKA_TOPIC_AIR: str = "air.quality"
     KAFKA_TOPIC_TRANSIT: str = "transit.gps"
     KAFKA_TOPIC_WASTE: str = "waste.level"
+    KAFKA_TOPIC_TEMPERATURE: str = "temperature.thermal"
     KAFKA_CONSUMER_GROUP: str = "city-dashboard-consumer"
 
     # Postgres
@@ -91,8 +95,8 @@ class Settings(BaseSettings):
 
     @property
     def effective_api_adapter_enabled(self) -> bool:
-        """Force-disable the real adapter if no TomTom key is configured."""
-        return bool(self.API_ADAPTER_ENABLED and self.TOMTOM_API_KEY)
+        """Force-disable the real adapter if no external API key is configured."""
+        return bool(self.API_ADAPTER_ENABLED and (self.TOMTOM_API_KEY or self.OPENWEATHER_API_KEY or self.FORTYGUARD_API_KEY))
 
     @property
     def kafka_client_config(self) -> dict[str, str]:
