@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 
-const WS_URL = import.meta.env.VITE_WS_URL || "ws://localhost:8000/ws/live";
+const WS_URL = 'wss://unified-city-dashboard.onrender.com/ws/live';
 const RECONNECT_DELAY_MS = 3000;
 
 export function useWebSocket<T>() {
