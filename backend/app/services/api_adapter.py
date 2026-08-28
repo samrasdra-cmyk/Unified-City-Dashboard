@@ -88,6 +88,20 @@ BREAKERS = {
 }
 
 
+def _breaker_using_fallback(name: str, breaker: CircuitBreaker) -> bool:
+    if breaker.is_open:
+        return True
+    if name == "traffic":
+        return not bool(settings.API_ADAPTER_ENABLED and settings.TOMTOM_API_KEY)
+    if name == "air":
+        return not bool(settings.API_ADAPTER_ENABLED and settings.OPENWEATHER_API_KEY)
+    if name == "temperature":
+        return not bool(settings.API_ADAPTER_ENABLED and settings.FORTYGUARD_API_KEY)
+    if name == "transit":
+        return not bool(settings.API_ADAPTER_ENABLED and settings.GTFS_RT_URL)
+    return False
+
+
 def get_connector_statuses() -> list[dict]:
     return [
         {
@@ -95,7 +109,7 @@ def get_connector_statuses() -> list[dict]:
             "status": breaker.status(),
             "last_success": breaker.last_success.isoformat() if breaker.last_success else None,
             "consecutive_failures": breaker.consecutive_failures,
-            "using_fallback": breaker.is_open or not settings.effective_api_adapter_enabled,
+            "using_fallback": _breaker_using_fallback(name, breaker),
         }
         for name, breaker in BREAKERS.items()
     ]
