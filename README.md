@@ -1,8 +1,7 @@
-Absolutely – I’ll write a **clean, professional README** that focuses on the project itself, **without** any hackathon‑specific mentions.
 
 ---
 
-## 📄 README.md (Hackathon‑free)
+## 📄 README.md 
 
 ```markdown
 # 🌆 Unified City Dashboard
