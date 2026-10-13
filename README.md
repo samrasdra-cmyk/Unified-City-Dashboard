@@ -3,7 +3,7 @@
 
 ## 📄 README.md 
 
-```markdown
+
 # 🌆 Unified City Dashboard
 
 [![Live Demo](https://img.shields.io/badge/Live-Demo-3fb950?style=for-the-badge&logo=vercel)](https://unified-city-dashboard-vruo.vercel.app/)
